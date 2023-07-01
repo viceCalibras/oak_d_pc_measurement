@@ -10,6 +10,7 @@ from typing import Type
 from typing import Tuple
 
 """
+TODO(vice) Clean and remove!
 If one or more of the additional depth modes (lrcheck, extended, subpixel)
 are enabled, then:
  - depth output is FP16. TODO enable U16.
