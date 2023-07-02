@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-
-# Source: https://github.com/luxonis/depthai/blob/main/depthai_helpers/projector_3d.py
+"""
+Source: https://github.com/luxonis/depthai/blob/main/depthai_helpers/projector_3d.py
+"""
 
 import open3d as o3d
 

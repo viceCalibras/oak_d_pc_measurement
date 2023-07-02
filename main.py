@@ -1,14 +1,4 @@
 #!/usr/bin/env python3
-
-import cv2
-import numpy as np
-import depthai
-from time import sleep
-import datetime
-import argparse
-from typing import Type
-from typing import Tuple
-
 """
 TODO(vice) Clean and remove!
 If one or more of the additional depth modes (lrcheck, extended, subpixel)
@@ -20,6 +10,17 @@ are enabled, then:
 Otherwise, depth output is U16 (mm) and median is functional.
 But like on Gen1, either depth or disparity has valid data. TODO enable both.
 """
+from projector_3d import PointCloudVisualizer
+import cv2
+import numpy as np
+import depthai
+from time import sleep
+import datetime
+import argparse
+from typing import Type
+from typing import Tuple
+from typing import List
+from typing import Optional
 
 
 def create_stereo_depth_pipeline(
@@ -129,73 +130,79 @@ def create_stereo_depth_pipeline(
     return pipeline, streams
 
 
-def convert_to_cv2_frame(name: str, image: Type[depthai.ImgFrame]) -> np.ndarray:
-    """Converts the output stream data from the device to
-    OpenCV frames, ready for visualization.
+def convert_to_cv2_frame(
+    name: str,
+    image: Type[depthai.ImgFrame],
+    right_intrinsic: List[List],
+    extended: bool,
+    subpixel: bool,
+    color_disparity: bool = False,
+) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+    """Converts the output stream data from the device to OpenCV frames, ready for visualization.
+    Functions will perform different operations depending on the type of the frame that it
+    receives from the device.
+    To create a pcl...
     N.B. CPU heavy operation!
 
     Args:
         name: Name of the output stream.
         image: Image acquired from the output queue from the device.
+        right_intrinsic: Camera intrinsics.
+        extended:
+        subpixel:
+        color_disparity: If true, a color map will be applied to the frame containing disparity data.
 
     Returns:
         Frame array, ready for visualization.
     """
-    print(type(image))
-    global last_rectif_right
+    # Set hardcoded transformation parameters.
     baseline = 75  # mm
     focal = right_intrinsic[0][0]
     max_disp = 96
     disp_type = np.uint8
     disp_levels = 1
+
+    depth = None
+
     if extended:
         max_disp *= 2
     if subpixel:
         max_disp *= 32
-        disp_type = np.uint16  # 5 bits fractional disparity
+        disp_type = np.uint16  # 5 bits fractional disparity.
         disp_levels = 32
 
+    # Unpack the image data, depending on the type.
+    # N.B. Possible improvement: check image frame type instead of name.
     data, w, h = image.getData(), image.getWidth(), image.getHeight()
-    # TODO check image frame type instead of name
     if name == "rgb_preview":
         frame = np.array(data).reshape((3, h, w)).transpose(1, 2, 0).astype(np.uint8)
     elif name == "rgb_video":  # YUV NV12
         yuv = np.array(data).reshape((h * 3 // 2, w)).astype(np.uint8)
         frame = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR_NV12)
     elif name == "depth":
-        # TODO: this contains FP16 with (lrcheck or extended or subpixel)
+        # This contains FP16 with (lrcheck or extended or subpixel).
         frame = np.array(data).astype(np.uint8).view(np.uint16).reshape((h, w))
     elif name == "disparity":
         disp = np.array(data).astype(np.uint8).view(disp_type).reshape((h, w))
-
-        # Compute depth from disparity (32 levels)
-        with np.errstate(divide="ignore"):  # Should be safe to ignore div by zero here
+        # Compute depth from disparity (32 levels).
+        with np.errstate(divide="ignore"):  # Should be safe to ignore div by zero here.
             depth = (disp_levels * baseline * focal / disp).astype(np.uint16)
 
-        if 1:  # Optionally, extend disparity range to better visualize it
-            frame = (disp * 255.0 / max_disp).astype(np.uint8)
-
-        if 1:  # Optionally, apply a color map
+        # Extend disparity range to better visualize it (optional).
+        frame = (disp * 255.0 / max_disp).astype(np.uint8)
+        # Apply a color map (optional).
+        if color_disparity:
             frame = cv2.applyColorMap(frame, cv2.COLORMAP_HOT)
-            # frame = cv2.applyColorMap(frame, cv2.COLORMAP_JET)
 
-        if pcl_converter is not None:
-            if 0:  # Option 1: project colorized disparity
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                pcl_converter.rgbd_to_projection(depth, frame_rgb, True)
-            else:  # Option 2: project rectified right
-                pcl_converter.rgbd_to_projection(depth, last_rectif_right, False)
-            pcl_converter.visualize_pcd()
-
-    else:  # mono streams / single channel
+    else:  # Mono streams / single channel.
         frame = np.array(data).reshape((h, w)).astype(np.uint8)
         if name.startswith("rectified_"):
             frame = cv2.flip(frame, 1)
         if name == "rectified_right":
+            global last_rectif_right
             last_rectif_right = frame
 
-    print(type(frame))
-    return frame
+    return frame, depth
 
 
 if __name__ == "__main__":
@@ -257,12 +264,6 @@ if __name__ == "__main__":
     pcl_converter = None
     if args.pcl:
         if out_rectified:
-            try:
-                from projector_3d import PointCloudVisualizer
-            except ImportError as e:
-                raise ImportError(
-                    f"\033[1;5;31mError occured when importing PCL projector: {e}. Try disabling the point cloud \033[0m "
-                )
             pcl_converter = PointCloudVisualizer(right_intrinsic, 1280, 720)
         else:
             print("Disabling point-cloud visualizer, as out_rectified is not set")
@@ -323,9 +324,8 @@ if __name__ == "__main__":
                     )
                 timestamp_ms += frame_interval_ms
                 index = (index + 1) % dataset_size
-                # TODO(vice) Remove?
-                if 1:  # Optional delay between iterations, host driven pipeline.
-                    sleep(frame_interval_ms / 1000)
+                # Insert delay between iterations, host driven pipeline (optional).
+                sleep(frame_interval_ms / 1000)
 
             # Handle output streams from the device.
             for q in q_list:
@@ -334,12 +334,30 @@ if __name__ == "__main__":
                 # Skip some streams, to reduce CPU load
                 if name in ["left", "right", "depth"]:
                     continue
-                frame = convert_to_cv2_frame(name, image)
+                frame, _ = convert_to_cv2_frame(
+                    name, image, right_intrinsic, extended, subpixel, pcl_converter
+                )
                 if args.show_disparity and name == "disparity":
                     cv2.imshow(name, frame)
                 if args.show_disparity and (
                     name == "rectified_left" or name == "rectified_right"
                 ):
                     cv2.imshow(name, frame)
+
+                # Visualize projected point cloud.
+                # TODO(vice) To be continued ...
+                if pcl_converter is not None and name == "disparity":
+                    frame, depth = convert_to_cv2_frame(
+                        name, image, right_intrinsic, extended, subpixel, pcl_converter
+                    )
+                    if 0:  # Option 1: project disparity in RGB channels.
+                        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        pcl_converter.rgbd_to_projection(depth, frame_rgb, True)
+                    else:  # Option 2: project rectified right.
+                        pcl_converter.rgbd_to_projection(
+                            depth, last_rectif_right, False
+                        )
+                    pcl_converter.visualize_pcd()
+
             if cv2.waitKey(1) == ord("q"):
                 break
