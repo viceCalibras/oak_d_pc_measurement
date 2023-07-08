@@ -17,7 +17,7 @@ Otherwise, depth output is U16 (mm) and median is functional.
 But like on Gen1 OAK-D, either depth or disparity has valid data. Work on this is in
 Luxonis's pipeline.
 """
-from projector_3d import PointCloudVisualizer
+from generate_pcl import PointCloudGenerator
 import cv2
 import numpy as np
 import depthai
@@ -29,7 +29,7 @@ from typing import Tuple
 from typing import List
 from typing import Optional
 
-# Camera intrinsics:
+# Camera intrinsics (right camera is used):
 RIGHT_INTRINSICS = [[860.0, 0.0, 640.0], [0.0, 860.0, 360.0], [0.0, 0.0, 1.0]]
 
 # Configure depthai StereoDepth node:
@@ -269,7 +269,7 @@ if __name__ == "__main__":
     pcl_converter = None
     if args.pcl_disparity or args.pcl_rectified:
         if OUT_RECTIFIED:
-            pcl_converter = PointCloudVisualizer(RIGHT_INTRINSICS, 1280, 720)
+            pcl_converter = PointCloudGenerator(RIGHT_INTRINSICS, 1280, 720)
         else:
             print(
                 "Point Cloud Visualization will not be provided, as OUT_RECTIFIED is not set"
@@ -345,7 +345,7 @@ if __name__ == "__main__":
                 # Insert delay between iterations, host driven pipeline (optional).
                 sleep(frame_interval_ms / 1000)
 
-            # Handle output streams from the device.
+            # Handle & visualize output streams from the device.
             for q in q_list:
                 name = q.getName()
                 image = q.get()
@@ -370,13 +370,13 @@ if __name__ == "__main__":
                     # Project disparity to the pcl.
                     if args.pcl_disparity:
                         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                        pcl_converter.rgbd_to_projection(depth, frame_rgb, True)
+                        pcl_converter.rgbd_to_pcl(depth, frame_rgb)
                     # Project rectified right to the pcl.
                     if args.pcl_rectified:
-                        pcl_converter.rgbd_to_projection(
-                            depth, last_rectif_right, False
-                        )
+                        pcl_converter.rgbd_to_pcl(depth, last_rectif_right)
                     pcl_converter.visualize_pcd()
 
             if cv2.waitKey(1) == ord("q"):
+                if pcl_converter:
+                    pcl_converter.close_window()
                 break
