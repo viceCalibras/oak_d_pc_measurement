@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
-"""
-TODO(vice) Clean and remove!
-If one or more of the additional depth modes (lrcheck, extended, subpixel)
-are enabled, then:
- - depth output is FP16. TODO enable U16.
- - median filtering is disabled on device. TODO enable.
- - with subpixel, either depth or disparity has valid data.
+"""OAK-D measurement visualization & acquisition script.
+Provides visualization for the most important building blocks of the
+OAK-D StereoDepth node, as well as reconstructed point cloud.
+Disparity map and rectified images can visualized, and point cloud can be 
+indeptendantly projected from both. Disparity and rectification are 
+all computed on the device!
+
+Can use one or more additional depth modes (LRCHECK, EXTENDED, SUBPIXEL).
+Depth modes are extra computations performed during the depth computation.
+If some of these additional depth modes are enabled:
+ - depth output is FP16, not U16.
+ - median filtering is disabled on device.
+ - with SUBPIXEL, either depth or disparity has valid data.
 
 Otherwise, depth output is U16 (mm) and median is functional.
-But like on Gen1, either depth or disparity has valid data. TODO enable both.
+But like on Gen1 OAK-D, either depth or disparity has valid data. Work on this is in
+Luxonis's pipeline.
 """
 from projector_3d import PointCloudVisualizer
 import cv2
@@ -21,6 +28,16 @@ from typing import Type
 from typing import Tuple
 from typing import List
 from typing import Optional
+
+# Camera intrinsics:
+RIGHT_INTRINSICS = [[860.0, 0.0, 640.0], [0.0, 860.0, 360.0], [0.0, 0.0, 1.0]]
+
+# Configure depthai StereoDepth node:
+OUT_DEPTH = False  # Output depth. Disparity by default.
+OUT_RECTIFIED = True  # Output and display rectified streams.
+LRCHECK = False  # Better handling of occlusions.
+EXTENDED = False  # Closer-in minimum depth, disparity range is doubled.
+SUBPIXEL = False  # Better accuracy for longer distance, fractional disparity 32-levels
 
 
 def create_stereo_depth_pipeline(
@@ -40,13 +57,13 @@ def create_stereo_depth_pipeline(
     output streams.
 
     Args:
-        out_depth:
-        out_rectified:
-        median:
-        lrcheck:
-        extended:
-        subpixel:
-        from_camera: If true, device will be used. Otherwise, images from
+        out_depth: If true, depth will be outputed. Disparity by default.
+        out_rectified: If true, rectified streams will be outputed.
+        median: Median filter to be used.
+        lrcheck: If true, left - right check will be done.
+        extended: If true, extended disparity will be used.
+        subpixel: If true, subpixel computation of disparity will be used.
+        from_camera: If true, device will be used as a source. Otherwise, images from
         a directory will be used.
 
     Returns:
@@ -123,7 +140,7 @@ def create_stereo_depth_pipeline(
     stereo.rectifiedRight.link(xout_rectif_right.input)
 
     streams = ["left", "right"]
-    if out_rectified:
+    if OUT_RECTIFIED:
         streams.extend(["rectified_left", "rectified_right"])
     streams.extend(["disparity", "depth"])
 
@@ -133,31 +150,31 @@ def create_stereo_depth_pipeline(
 def convert_to_cv2_frame(
     name: str,
     image: Type[depthai.ImgFrame],
-    right_intrinsic: List[List],
+    RIGHT_INTRINSICS: List[List],
     extended: bool,
     subpixel: bool,
     color_disparity: bool = False,
 ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
-    """Converts the output stream data from the device to OpenCV frames, ready for visualization.
+    """Converts the output stream image frames from the device to OpenCV frames, ready for visualization.
     Functions will perform different operations depending on the type of the frame that it
-    receives from the device.
-    To create a pcl...
+    receives from the device. If disparity frame is received, depth will also be computed and added
+    to the output.
     N.B. CPU heavy operation!
 
     Args:
         name: Name of the output stream.
         image: Image acquired from the output queue from the device.
-        right_intrinsic: Camera intrinsics.
-        extended:
-        subpixel:
+        RIGHT_INTRINSICS: Camera intrinsics.
+        extended: If true, disparity computation will be extended.
+        subpixel: If true, subpixel disparity computation will be used.
         color_disparity: If true, a color map will be applied to the frame containing disparity data.
 
     Returns:
-        Frame array, ready for visualization.
+        Frame array, ready for visualization, and depth, if available.
     """
-    # Set hardcoded transformation parameters.
+    # Set basic transformation parameters.
     baseline = 75  # mm
-    focal = right_intrinsic[0][0]
+    focal = RIGHT_INTRINSICS[0][0]
     max_disp = 96
     disp_type = np.uint8
     disp_levels = 1
@@ -180,7 +197,7 @@ def convert_to_cv2_frame(
         yuv = np.array(data).reshape((h * 3 // 2, w)).astype(np.uint8)
         frame = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR_NV12)
     elif name == "depth":
-        # This contains FP16 with (lrcheck or extended or subpixel).
+        # This contains FP16 with (LRCHECK or EXTENDED or SUBPIXEL).
         frame = np.array(data).astype(np.uint8).view(np.uint16).reshape((h, w))
     elif name == "disparity":
         disp = np.array(data).astype(np.uint8).view(disp_type).reshape((h, w))
@@ -206,11 +223,16 @@ def convert_to_cv2_frame(
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-pcl",
-        help="Enables point cloud convertion and visualization.",
+        "-pcl_disparity",
+        help="Convert and visualize point cloud from the disparity map.",
+        default=False,
+        action="store_true",
+    )
+    parser.add_argument(
+        "-pcl_rectified",
+        help="Convert and visualize point cloud from the rectified (righ) image.",
         default=False,
         action="store_true",
     )
@@ -234,49 +256,45 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    # Camera intrinsics:
-    right_intrinsic = [[860.0, 0.0, 640.0], [0.0, 860.0, 360.0], [0.0, 0.0, 1.0]]
-
-    # depthai StereoDepth config options:
+    # Determine the fram source: device or folder.
     source_camera = not args.static
-    out_depth = False  # Disparity by default
-    # TODO(vice) Required for point cloud!
-    out_rectified = True  # Output and display rectified streams
-    lrcheck = True  # Better handling for occlusions
-    extended = False  # Closer-in minimum depth, disparity range is doubled
-    subpixel = (
-        True  # Better accuracy for longer distance, fractional disparity 32-levels
-    )
+
     # Options: MEDIAN_OFF, KERNEL_3x3, KERNEL_5x5, KERNEL_7x7
     median = depthai.StereoDepthProperties.MedianFilter.KERNEL_7x7
 
     # Sanitize some incompatible options as median filter can't work with them.
-    if lrcheck or extended or subpixel:
+    if LRCHECK or EXTENDED or SUBPIXEL:
         median = depthai.StereoDepthProperties.MedianFilter.MEDIAN_OFF
 
-    # Print out the basic setup:
-    print("StereoDepth config options:")
-    print("    Left-Right check:  ", lrcheck)
-    print("    Extended disparity:", extended)
-    print("    Subpixel:          ", subpixel)
-    print("    Median filtering:  ", median)
-
     pcl_converter = None
-    if args.pcl:
-        if out_rectified:
-            pcl_converter = PointCloudVisualizer(right_intrinsic, 1280, 720)
+    if args.pcl_disparity or args.pcl_rectified:
+        if OUT_RECTIFIED:
+            pcl_converter = PointCloudVisualizer(RIGHT_INTRINSICS, 1280, 720)
         else:
-            print("Disabling point-cloud visualizer, as out_rectified is not set")
+            print(
+                "Point Cloud Visualization will not be provided, as OUT_RECTIFIED is not set"
+            )
+
+    # Print out the basic setup:
+    print("Starting OAK-D measurement visualization & acquisition.")
+    print("General parameters:")
+    print("    Camera source:  ", source_camera)
+    print("    Pcl from disparity:", args.pcl_disparity)
+    print("    Pcl from rectified:", args.pcl_rectified)
+    print("StereoDepth node configuration options:")
+    print("    Left-Right check:  ", LRCHECK)
+    print("    Extended disparity:", EXTENDED)
+    print("    Subpixel:          ", SUBPIXEL)
+    print("    Median filtering:  ", median)
 
     # Define a pipeline.
     pipeline, streams = create_stereo_depth_pipeline(
-        out_depth, out_rectified, median, lrcheck, extended, subpixel, source_camera
+        OUT_DEPTH, OUT_RECTIFIED, median, LRCHECK, EXTENDED, SUBPIXEL, source_camera
     )
 
     with depthai.Device(pipeline) as device:
         print("Starting pipeline")
         device.startPipeline()
-
         # Define stream queues - required to send & received data to & from a device.
         # Define static frame .png dataset queues.
         in_streams = []
@@ -335,7 +353,7 @@ if __name__ == "__main__":
                 if name in ["left", "right", "depth"]:
                     continue
                 frame, _ = convert_to_cv2_frame(
-                    name, image, right_intrinsic, extended, subpixel, pcl_converter
+                    name, image, RIGHT_INTRINSICS, EXTENDED, SUBPIXEL, False
                 )
                 if args.show_disparity and name == "disparity":
                     cv2.imshow(name, frame)
@@ -345,15 +363,16 @@ if __name__ == "__main__":
                     cv2.imshow(name, frame)
 
                 # Visualize projected point cloud.
-                # TODO(vice) To be continued ...
                 if pcl_converter is not None and name == "disparity":
                     frame, depth = convert_to_cv2_frame(
-                        name, image, right_intrinsic, extended, subpixel, pcl_converter
+                        name, image, RIGHT_INTRINSICS, EXTENDED, SUBPIXEL, False
                     )
-                    if 0:  # Option 1: project disparity in RGB channels.
+                    # Project disparity to the pcl.
+                    if args.pcl_disparity:
                         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                         pcl_converter.rgbd_to_projection(depth, frame_rgb, True)
-                    else:  # Option 2: project rectified right.
+                    # Project rectified right to the pcl.
+                    if args.pcl_rectified:
                         pcl_converter.rgbd_to_projection(
                             depth, last_rectif_right, False
                         )
