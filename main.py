@@ -3,8 +3,9 @@
 Provides visualization for the most important building blocks of the
 OAK-D StereoDepth node, as well as reconstructed point cloud.
 Disparity map and rectified images can visualized, and point cloud can be 
-indeptendantly projected from both. Disparity and rectification are 
-all computed on the device!
+indeptendantly projected from both.
+Point clouds can be captured. 
+Disparity and rectification are all computed on the device!
 
 Can use one or more additional depth modes (LRCHECK, EXTENDED, SUBPIXEL).
 Depth modes are extra computations performed during the depth computation.
@@ -35,8 +36,8 @@ RIGHT_INTRINSICS = [[860.0, 0.0, 640.0], [0.0, 860.0, 360.0], [0.0, 0.0, 1.0]]
 # Configure depthai StereoDepth node:
 OUT_DEPTH = False  # Output depth. Disparity by default.
 OUT_RECTIFIED = True  # Output and display rectified streams.
-LRCHECK = False  # Better handling of occlusions.
-EXTENDED = False  # Closer-in minimum depth, disparity range is doubled.
+LRCHECK = True  # Better handling of occlusions.
+EXTENDED = True  # Closer-in minimum depth, disparity range is doubled.
 SUBPIXEL = False  # Better accuracy for longer distance, fractional disparity 32-levels
 
 
@@ -266,15 +267,6 @@ if __name__ == "__main__":
     if LRCHECK or EXTENDED or SUBPIXEL:
         median = depthai.StereoDepthProperties.MedianFilter.MEDIAN_OFF
 
-    pcl_converter = None
-    if args.pcl_disparity or args.pcl_rectified:
-        if OUT_RECTIFIED:
-            pcl_converter = PointCloudGenerator(RIGHT_INTRINSICS, 1280, 720)
-        else:
-            print(
-                "Point Cloud Visualization will not be provided, as OUT_RECTIFIED is not set"
-            )
-
     # Print out the basic setup:
     print("Starting OAK-D measurement visualization & acquisition.")
     print("General parameters:")
@@ -286,6 +278,19 @@ if __name__ == "__main__":
     print("    Extended disparity:", EXTENDED)
     print("    Subpixel:          ", SUBPIXEL)
     print("    Median filtering:  ", median)
+
+    pcl_converter = None
+    if args.pcl_disparity or args.pcl_rectified:
+        if OUT_RECTIFIED:
+            pcl_converter = PointCloudGenerator(RIGHT_INTRINSICS, 1280, 720)
+            print(
+                "Point Cloud Generation started! Press q to exit. Press c to capture"
+                "measurement."
+            )
+        else:
+            print(
+                "Point Cloud Generation will not be provided, as OUT_RECTIFIED is not set"
+            )
 
     # Define a pipeline.
     pipeline, streams = create_stereo_depth_pipeline(

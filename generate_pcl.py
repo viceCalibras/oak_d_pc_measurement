@@ -3,13 +3,14 @@
 """
 from typing import List
 from typing import Type
+import time
 import numpy as np
 import open3d as o3d
 
 
 class PointCloudGenerator:
-    """Generates point cloud from the camera images. Also provides visualization
-    functionalities.
+    """Generates point cloud from the camera images. Provides visualization
+    and point cloud (measuement) capture functionalities.
     Point clouds are generated from the RGBD images (RGB + depth), taking
     camera intrinsics into account.
     """
@@ -40,7 +41,20 @@ class PointCloudGenerator:
         self.isstarted = False
 
         # Register key callbacks.
-        self.vis.register_key_callback(ord("q"), self.close_window)
+        self.vis.register_key_callback(ord("Q"), self._close_window)
+        self.vis.register_key_callback(ord("C"), self._capture_pcd)
+
+    def _close_window(self, vis):
+        """Stops the visualization."""
+        vis.destroy_window()
+
+    def _capture_pcd(self, vis):
+        """Captures a point cloud (measurement)."""
+        timestr = time.strftime("%Y%m%d-%H%M%S")
+        vis.capture_depth_point_cloud(f"./measurements/{timestr}.pcd")
+        print(
+            f"Point cloud measurement saved at: measurements/{timestr}.pcd",
+        )
 
     def rgbd_to_pcl(
         self, depth_map: np.ndarray, rgb: np.ndarray
@@ -98,7 +112,3 @@ class PointCloudGenerator:
             self.vis.update_geometry(self.pcl)
             self.vis.poll_events()
             self.vis.update_renderer()
-
-    def close_window(self, vis):
-        """Stops the visualization."""
-        vis.destroy_window()
