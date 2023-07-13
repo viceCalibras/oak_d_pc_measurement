@@ -5,10 +5,10 @@ import numpy as np
 
 
 def threshold_pc_distance(
-    pc: Type[o3d.open3d_pybind.geometry.PointCloud],
+    pc: Type[o3d.cpu.pybind.geometry.PointCloud],
     threshold_min: float,
     threshold_max: float,
-) -> Type[o3d.open3d_pybind.geometry.PointCloud]:
+) -> Type[o3d.cpu.pybind.geometry.PointCloud]:
     """Provides basic spatial filtering functionality - removes all the points that are
     outside a certain threshold interval.
 
@@ -38,7 +38,7 @@ def threshold_pc_distance(
 
 
 def visualize_pc(
-    pc: Type[o3d.open3d_pybind.geometry.PointCloud],
+    pc: Type[o3d.cpu.pybind.geometry.PointCloud],
     point_size: float,
     window_name: str,
 ):
@@ -66,6 +66,48 @@ def visualize_pc(
 
     # Run the visualization.
     vis.run()
+
+
+def customDrawGeometry(model, data, point_size, window_name, transformation):
+    """Custom visualizer function for the NAICP prototype.
+    Args:
+        model ([open3d geom object: pcd, triangle mesh, image): Referent pointset
+        data ([open3d geom object: pcd, triangle mesh, image]): Pointset to be aligned
+        point_size ([int]): Point size in visualization
+        window_name ([string]): Title for the visualization window
+        transformation ([array]): Transformation array for the data pointset
+    """
+    # Initialize the main Visualizer class
+    vis = o3d.visualization.Visualizer()
+    vis.create_window(window_name=window_name, width=720, height=720, left=25, top=25)
+
+    # Add the geometry to the scene and create corresponding shaders
+    vis.add_geometry(model)
+    vis.add_geometry(data)
+
+    # Do the transformation, if required
+    if transformation is not None:
+        data.transform(transformation)
+
+    # Rendering options
+    opt = vis.get_render_option()
+    opt.show_coordinate_frame = True
+    opt.point_size = point_size
+    opt.light_on = True
+    # Paint two clouds
+    model.paint_uniform_color([1, 0.706, 0])
+    data.paint_uniform_color([0, 0.651, 0.929])
+    # opt.mesh_color_option = Color
+    opt.mesh_show_wireframe = True
+    opt.mesh_show_back_face = True
+
+    # Change the view
+    view = vis.get_view_control()
+    view.rotate(250, 250)
+
+    # Run the visualization
+    vis.run()
+    vis.destroy_window()
 
 
 if __name__ == "__main__":

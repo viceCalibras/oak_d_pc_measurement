@@ -58,7 +58,7 @@ class PointCloudGenerator:
 
     def rgbd_to_pc(
         self, depth_map: np.ndarray, rgb: np.ndarray
-    ) -> Type[o3d.open3d_pybind.geometry.PointCloud]:
+    ) -> Type[o3d.cpu.pybind.geometry.PointCloud]:
         """Convert RGBD image to point cloud.
         Function first creates RGBD image from the RGB image and the depth map.
         Point cloud is created next, wrapping Open3D functionalities.
