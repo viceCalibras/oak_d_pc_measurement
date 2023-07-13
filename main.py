@@ -18,7 +18,7 @@ Otherwise, depth output is U16 (mm) and median is functional.
 But like on Gen1 OAK-D, either depth or disparity has valid data. Work on this is in
 Luxonis's pipeline.
 """
-from generate_pcl import PointCloudGenerator
+from generate_pc import PointCloudGenerator
 import cv2
 import numpy as np
 import depthai
@@ -226,13 +226,13 @@ def convert_to_cv2_frame(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-pcl_disparity",
+        "-pc_disparity",
         help="Convert and visualize point cloud from the disparity map.",
         default=False,
         action="store_true",
     )
     parser.add_argument(
-        "-pcl_rectified",
+        "-pc_rectified",
         help="Convert and visualize point cloud from the rectified (righ) image.",
         default=False,
         action="store_true",
@@ -271,18 +271,18 @@ if __name__ == "__main__":
     print("Starting OAK-D measurement visualization & acquisition.")
     print("General parameters:")
     print("    Camera source:  ", source_camera)
-    print("    Pcl from disparity:", args.pcl_disparity)
-    print("    Pcl from rectified:", args.pcl_rectified)
+    print("    Pc from disparity:", args.pc_disparity)
+    print("    Pc from rectified:", args.pc_rectified)
     print("StereoDepth node configuration options:")
     print("    Left-Right check:  ", LRCHECK)
     print("    Extended disparity:", EXTENDED)
     print("    Subpixel:          ", SUBPIXEL)
     print("    Median filtering:  ", median)
 
-    pcl_converter = None
-    if args.pcl_disparity or args.pcl_rectified:
+    pc_converter = None
+    if args.pc_disparity or args.pc_rectified:
         if OUT_RECTIFIED:
-            pcl_converter = PointCloudGenerator(RIGHT_INTRINSICS, 1280, 720)
+            pc_converter = PointCloudGenerator(RIGHT_INTRINSICS, 1280, 720)
             print(
                 "Point Cloud Generation started! Press q to exit. Press c to capture"
                 "measurement."
@@ -368,20 +368,20 @@ if __name__ == "__main__":
                     cv2.imshow(name, frame)
 
                 # Visualize projected point cloud.
-                if pcl_converter is not None and name == "disparity":
+                if pc_converter is not None and name == "disparity":
                     frame, depth = convert_to_cv2_frame(
                         name, image, RIGHT_INTRINSICS, EXTENDED, SUBPIXEL, False
                     )
-                    # Project disparity to the pcl.
-                    if args.pcl_disparity:
+                    # Project disparity to the pc.
+                    if args.pc_disparity:
                         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                        pcl_converter.rgbd_to_pcl(depth, frame_rgb)
-                    # Project rectified right to the pcl.
-                    if args.pcl_rectified:
-                        pcl_converter.rgbd_to_pcl(depth, last_rectif_right)
-                    pcl_converter.visualize_pcd()
+                        pc_converter.rgbd_to_pc(depth, frame_rgb)
+                    # Project rectified right to the pc.
+                    if args.pc_rectified:
+                        pc_converter.rgbd_to_pc(depth, last_rectif_right)
+                    pc_converter.visualize_pc()
 
             if cv2.waitKey(1) == ord("q"):
-                if pcl_converter:
-                    pcl_converter.close_window()
+                if pc_converter:
+                    pc_converter.close_window()
                 break

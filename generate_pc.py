@@ -24,7 +24,7 @@ class PointCloudGenerator:
         """
         self.depth_map = None
         self.rgb = None
-        self.pcl = None
+        self.pc = None
 
         # Instantiate relevant open3d objects.
         self.pinhole_camera_intrinsic = o3d.camera.PinholeCameraIntrinsic(
@@ -42,13 +42,13 @@ class PointCloudGenerator:
 
         # Register key callbacks.
         self.vis.register_key_callback(ord("Q"), self._close_window)
-        self.vis.register_key_callback(ord("C"), self._capture_pcd)
+        self.vis.register_key_callback(ord("C"), self._capture_pc)
 
     def _close_window(self, vis):
         """Stops the visualization."""
         vis.destroy_window()
 
-    def _capture_pcd(self, vis):
+    def _capture_pc(self, vis):
         """Captures a point cloud (measurement)."""
         timestr = time.strftime("%Y%m%d-%H%M%S")
         vis.capture_depth_point_cloud(f"./measurements/{timestr}.pcd")
@@ -56,7 +56,7 @@ class PointCloudGenerator:
             f"Point cloud measurement saved at: measurements/{timestr}.pcd",
         )
 
-    def rgbd_to_pcl(
+    def rgbd_to_pc(
         self, depth_map: np.ndarray, rgb: np.ndarray
     ) -> Type[o3d.open3d_pybind.geometry.PointCloud]:
         """Convert RGBD image to point cloud.
@@ -86,29 +86,29 @@ class PointCloudGenerator:
             rgbd_image = o3d.geometry.RGBDImage.create_from_color_and_depth(
                 rgb_o3d, depth_o3d
             )
-        if self.pcl is None:
-            self.pcl = o3d.geometry.PointCloud.create_from_rgbd_image(
+        if self.pc is None:
+            self.pc = o3d.geometry.PointCloud.create_from_rgbd_image(
                 rgbd_image, self.pinhole_camera_intrinsic
             )
         else:
             pcd = o3d.geometry.PointCloud.create_from_rgbd_image(
                 rgbd_image, self.pinhole_camera_intrinsic
             )
-            self.pcl.points = pcd.points
-            self.pcl.colors = pcd.colors
+            self.pc.points = pcd.points
+            self.pc.colors = pcd.colors
 
-        return self.pcl
+        return self.pc
 
-    def visualize_pcd(self):
+    def visualize_pc(self):
         """Visualizes projected point cloud."""
         if not self.isstarted:
-            self.vis.add_geometry(self.pcl)
+            self.vis.add_geometry(self.pc)
             origin = o3d.geometry.TriangleMesh.create_coordinate_frame(
                 size=0.3, origin=[0, 0, 0]
             )
             self.vis.add_geometry(origin)
             self.isstarted = True
         else:
-            self.vis.update_geometry(self.pcl)
+            self.vis.update_geometry(self.pc)
             self.vis.poll_events()
             self.vis.update_renderer()

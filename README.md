@@ -1,4 +1,4 @@
-# oak_d_pcl_measurement
+# oak_d_pc_measurement
 
 This repo contains code capable of generating a point cloud measurement from OAK-D camera.
 It requires basic OAK-D setup to be made on the machine and `depthai` and `depthai-python` libraries to be installed.
