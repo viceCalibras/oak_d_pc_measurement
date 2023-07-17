@@ -33,12 +33,14 @@ from typing import Optional
 # Camera intrinsics (right camera is used):
 RIGHT_INTRINSICS = [[860.0, 0.0, 640.0], [0.0, 860.0, 360.0], [0.0, 0.0, 1.0]]
 
+# TODO(vice) Move to YAML. Following config is the best for close-range measurement.
 # Configure depthai StereoDepth node:
 OUT_DEPTH = False  # Output depth. Disparity by default.
 OUT_RECTIFIED = True  # Output and display rectified streams.
 LRCHECK = True  # Better handling of occlusions.
 EXTENDED = True  # Closer-in minimum depth, disparity range is doubled.
 SUBPIXEL = False  # Better accuracy for longer distance, fractional disparity 32-levels
+CONFIDENCE_THRESHOLD = 200
 
 
 def create_stereo_depth_pipeline(
@@ -48,6 +50,7 @@ def create_stereo_depth_pipeline(
     lrcheck: bool,
     extended: bool,
     subpixel: bool,
+    confidence_threshold: int,
     from_camera: bool = True,
 ) -> Tuple[Type[depthai.Pipeline], list]:
     """Creates a stereo depth pipeline object with the corresponding data streams.
@@ -64,6 +67,9 @@ def create_stereo_depth_pipeline(
         lrcheck: If true, left - right check will be done.
         extended: If true, extended disparity will be used.
         subpixel: If true, subpixel computation of disparity will be used.
+        confidence_threshold: Confidence from 0 (highest) to 255 (lowest) that determines
+                              will the disparity computed for a given pixel be taken
+                              into account.
         from_camera: If true, device will be used as a source. Otherwise, images from
         a directory will be used.
 
@@ -105,6 +111,11 @@ def create_stereo_depth_pipeline(
     stereo.setLeftRightCheck(lrcheck)
     stereo.setExtendedDisparity(extended)
     stereo.setSubpixel(subpixel)
+
+    # Increase the accuracy or filling rate of the depth measurement.
+    # See: https://docs.luxonis.com/projects/api/en/latest/tutorials/configuring-stereo-depth/
+    # ?highlight=stereo#stereo-depth-confidence-threshold
+    stereo.setConfidenceThreshold(confidence_threshold)
 
     if from_camera:
         # Default: EEPROM calib is used, and resolution taken from MonoCamera nodes.
@@ -294,7 +305,14 @@ if __name__ == "__main__":
 
     # Define a pipeline.
     pipeline, streams = create_stereo_depth_pipeline(
-        OUT_DEPTH, OUT_RECTIFIED, median, LRCHECK, EXTENDED, SUBPIXEL, source_camera
+        OUT_DEPTH,
+        OUT_RECTIFIED,
+        median,
+        LRCHECK,
+        EXTENDED,
+        SUBPIXEL,
+        CONFIDENCE_THRESHOLD,
+        source_camera,
     )
 
     with depthai.Device(pipeline) as device:

@@ -68,44 +68,46 @@ def visualize_pc(
     vis.run()
 
 
-def customDrawGeometry(model, data, point_size, window_name, transformation):
-    """Custom visualizer function for the NAICP prototype.
+def visualize_two_pc(
+    pc_1: Type[o3d.cpu.pybind.geometry.PointCloud],
+    pc_2: Type[o3d.cpu.pybind.geometry.PointCloud],
+    point_size: float,
+    window_name: str,
+    transformation: np.ndarray = None,
+):
+    """Custom visualizer function for 2 point clouds.
+
     Args:
-        model ([open3d geom object: pcd, triangle mesh, image): Referent pointset
-        data ([open3d geom object: pcd, triangle mesh, image]): Pointset to be aligned
-        point_size ([int]): Point size in visualization
-        window_name ([string]): Title for the visualization window
-        transformation ([array]): Transformation array for the data pointset
+        pc_1: First input point cloud.
+        pc_2: Second input point cloud.
+        point_size: Point size in the visualization.
+        window_name: Title for the visualization window.
+        transformation: Transformation array that is to be applied on the 2nd point cloud, if exists.
+                        Used to visualize registration results.
     """
-    # Initialize the main Visualizer class
     vis = o3d.visualization.Visualizer()
     vis.create_window(window_name=window_name, width=720, height=720, left=25, top=25)
 
-    # Add the geometry to the scene and create corresponding shaders
-    vis.add_geometry(model)
-    vis.add_geometry(data)
+    vis.add_geometry(pc_1)
+    vis.add_geometry(pc_2)
 
-    # Do the transformation, if required
+    # Do the transformation, if required.
     if transformation is not None:
-        data.transform(transformation)
+        pc_2.transform(transformation)
 
-    # Rendering options
+    # Set rendering options.
     opt = vis.get_render_option()
     opt.show_coordinate_frame = True
     opt.point_size = point_size
     opt.light_on = True
-    # Paint two clouds
-    model.paint_uniform_color([1, 0.706, 0])
-    data.paint_uniform_color([0, 0.651, 0.929])
-    # opt.mesh_color_option = Color
+    pc_1.paint_uniform_color([1, 0.706, 0])
+    pc_2.paint_uniform_color([0, 0.651, 0.929])
     opt.mesh_show_wireframe = True
     opt.mesh_show_back_face = True
-
-    # Change the view
     view = vis.get_view_control()
     view.rotate(250, 250)
 
-    # Run the visualization
+    # Run the visualization.
     vis.run()
     vis.destroy_window()
 
@@ -115,5 +117,3 @@ if __name__ == "__main__":
     visualize_pc(pc, 1.5, "Raw point cloud")
 
     pc_thresholded = threshold_pc_distance(pc, 2500, 3200)
-
-    # visualize_pc(pc_thresholded, 1.5, "Filtered point cloud")
