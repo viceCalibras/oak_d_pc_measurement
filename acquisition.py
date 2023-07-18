@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OAK-D measurement visualization & acquisition script.
+"""OAK-D measurement acquisition & visualization script.
 Provides visualization for the most important building blocks of the
 OAK-D StereoDepth node, as well as reconstructed point cloud.
 Disparity map and rectified images can visualized, and point cloud can be 
@@ -33,8 +33,8 @@ from typing import Optional
 # Camera intrinsics (right camera is used):
 RIGHT_INTRINSICS = [[860.0, 0.0, 640.0], [0.0, 860.0, 360.0], [0.0, 0.0, 1.0]]
 
-# TODO(vice) Move to YAML. Following config is the best for close-range measurement.
-# Configure depthai StereoDepth node:
+# Configure depthai StereoDepth node.
+# Following config is the best for close-range measurement.
 OUT_DEPTH = False  # Output depth. Disparity by default.
 OUT_RECTIFIED = True  # Output and display rectified streams.
 LRCHECK = True  # Better handling of occlusions.

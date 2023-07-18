@@ -10,7 +10,11 @@ import numpy as np
 from utils import threshold_pc_distance
 from utils import visualize_pc
 
-MEASUREMENTS_DIR = "./measurements/pumpkin/"
+MEASUREMENTS_DIR = "./measurements/room/"
+
+DOWNSAMPLE = True
+CENTER_TO_CENTER = False
+THRESHOLD = False
 
 if __name__ == "__main__":
     pc_source = None
@@ -19,17 +23,23 @@ if __name__ == "__main__":
             if pc_source is None:
                 print("Loading first pc: ", file.name)
                 pc_source = o3d.io.read_point_cloud(str(file))
-                pc_source = threshold_pc_distance(pc_source, 250, 750)
+                if THRESHOLD:
+                    pc_source = threshold_pc_distance(pc_source, 250, 750)
+                if DOWNSAMPLE:
+                    pc_source = pc_source.voxel_down_sample(0.1)
             else:
                 print("Loading target pc: ", file.name)
                 pc_target = o3d.io.read_point_cloud(str(file))
-                pc_target = threshold_pc_distance(pc_target, 250, 750)
-
-                translation_vector = pc_source.get_center() - pc_target.get_center()
-                pc_target.translate(translation_vector)
+                if THRESHOLD:
+                    pc_target = threshold_pc_distance(pc_target, 250, 750)
+                if CENTER_TO_CENTER:
+                    translation_vector = pc_source.get_center() - pc_target.get_center()
+                    pc_target.translate(translation_vector)
+                if DOWNSAMPLE:
+                    pc_target = pc_target.voxel_down_sample(0.1)
 
                 # Estimate pc normals.
-                radius_normal = 0.005  # 5 cm.
+                radius_normal = 0.005  # 5 mm.
                 pc_source.estimate_normals(
                     o3d.geometry.KDTreeSearchParamHybrid(
                         radius=radius_normal, max_nn=30
@@ -58,7 +68,6 @@ if __name__ == "__main__":
 
     # Prepare for visualization.
     pc_final = pc_source
-    pc_final.voxel_down_sample(0.05)
     visualize_pc(pc_final, 1.0, "Measurement")
 
     # Do a surface reconstruction.
@@ -72,8 +81,7 @@ if __name__ == "__main__":
     #     o3d.utility.VerbosityLevel.Debug) as cm:
     #     mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
     #         pc_final, depth=9)
-        
-    # print(mesh)
-        
-    # o3d.visualization.draw_geometries([mesh])
 
+    # print(mesh)
+
+    # o3d.visualization.draw_geometries([mesh])
