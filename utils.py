@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
+"""Module contains all the utility functions, mainly
+thresholding and visualizations.
+"""
 from typing import Type
 import open3d as o3d
 import numpy as np
+import plotly.graph_objs as go
 
 
 def threshold_pc_distance(
@@ -111,9 +115,23 @@ def visualize_two_pc(
     vis.run()
     vis.destroy_window()
 
+def visualizer_pc(pc: Type[o3d.cpu.pybind.geometry.PointCloud]) -> Type[go.Figure]:
+    """Creates a visualizer figure object, based on plotly.go.Scatter3d,
+    that can be used to visualize point clouds. It is to be mostly used in the
+    development environment as it can be rendered in the notebook.
 
-if __name__ == "__main__":
-    pc = o3d.io.read_point_cloud("./measurements/20230713-180927.pcd")
-    visualize_pc(pc, 1.5, "Raw point cloud")
+    Args:
+        pc: Input point cloud.
 
-    pc_thresholded = threshold_pc_distance(pc, 2500, 3200)
+    Returns:
+        Visualizer figure object. Use show() method to visualize.
+    """
+    pc = np.asarray(pc.points)
+    vis = go.Figure(data =[go.Scatter3d(x = pc[:, 0],
+                                   y = pc[:, 1],
+                                   z = pc[:, 2],
+                                   mode ='markers',           
+                                    marker = dict(
+                                     size = 1,
+                                   ))])
+    return vis

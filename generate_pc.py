@@ -99,8 +99,8 @@ class PointCloudGenerator:
 
         return self.pc
 
-    def visualize_pc(self):
-        """Visualizes projected point cloud."""
+    def render_pc(self):
+        """Renders projected point cloud."""
         if not self.isstarted:
             self.vis.add_geometry(self.pc)
             origin = o3d.geometry.TriangleMesh.create_coordinate_frame(

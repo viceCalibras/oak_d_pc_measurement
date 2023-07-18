@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-from typing import Type
-import open3d as o3d
-import numpy as np
+"""Script implementing Fast Point Feature Histogram to execute global
+registration on two point clouds.
 
-from inspect_pc import threshold_pc_distance
-from inspect_pc import visualize_pc
-from inspect_pc import customDrawGeometry
+Source: http://www.open3d.org/docs/release/tutorial/pipelines/global_registration.html
+"""
+import open3d as o3d
+
+from utils import threshold_pc_distance
 
 if __name__ == "__main__":
     pc_source = o3d.io.read_point_cloud("./measurements/lamp/20230713-180844.pcd")
@@ -38,7 +39,7 @@ if __name__ == "__main__":
     )
 
     # Do a global registration.
-    translation_vector = pc_source.get_center() - pc_target.get_center()
+    translation_vector = pc_source.get_center() - pc_target.get_center() 
     pc_target.translate(translation_vector)
 
     result = o3d.pipelines.registration.registration_fgr_based_on_feature_matching(
@@ -54,7 +55,3 @@ if __name__ == "__main__":
         ),
     )
 
-    # visualize_pc(result, 1.5, "Measurement")
-    customDrawGeometry(
-        pc_source, pc_target, 1.5, "Global alignment", result.transformation
-    )

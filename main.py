@@ -397,7 +397,7 @@ if __name__ == "__main__":
                     # Project rectified right to the pc.
                     if args.pc_rectified:
                         pc_converter.rgbd_to_pc(depth, last_rectif_right)
-                    pc_converter.visualize_pc()
+                    pc_converter.render_pc()
 
             if cv2.waitKey(1) == ord("q"):
                 if pc_converter:
