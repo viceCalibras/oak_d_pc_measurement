@@ -10,7 +10,9 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
 To test is the device detected and available:  `lsusb | grep MyriadX`
+
 Note that the device needs to be plugged in **directly** into the machine (not via USB hub!) to utilize USB3 connection!
+
 Hardware docs: https://docs.luxonis.com/projects/hardware/en/latest/index.html
 
 ### DepthAI & Python API setup (Ubuntu 20.04)
@@ -38,3 +40,8 @@ https://github.com/luxonis/depthai and https://github.com/luxonis/depthai-python
 - All samples are available inside depthai-python/examples
 
 ### Example results
+![](stereo_camera_pc_results_example.png)
+
+What is interesting here is the loss function, also known as robust kernel. Tukey loss, used in this implementation, is a loss function that displays quadratic behaviour near the origin. It is very insensitive to outliers are the loss incurred by large residuals in constant (rather than scaling linearly). Figure below shows the plot of the Tukey loss for various values of the parameter c.
+
+![](tukey_loss.png)
