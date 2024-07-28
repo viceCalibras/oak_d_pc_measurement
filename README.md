@@ -25,7 +25,7 @@ Installation instructions (also with RPi & Jetson instructions): https://docs.lu
 There are 2 main repositories that are to be utilized:
 https://github.com/luxonis/depthai and https://github.com/luxonis/depthai-python. First one is  a main depthai library and the second one contains Python bindings.
 
-- Create venv: `python3 - m venv venv`
+- Create venv: `python3 -m venv venv`
 - `source venv/bin/activate`
 - `pip install -U pip`
 - Clone main depthai library (C++): `git clone https://github.com/luxonis/depthai.git`
